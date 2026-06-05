@@ -4,6 +4,7 @@ import os
 import subprocess
 import select
 import threading
+from urllib.parse import urlparse, urlunparse
 
 from concurrent.futures import ThreadPoolExecutor
 print(r"""
@@ -48,9 +49,10 @@ def check_common_apis(baseUrl, wordlist):
     tempWordlist = ["api", "v1", "v2", "api/v2", "api/v1", "graphql", "rest"]
     print(" [-] Testing Common API endpoints first")
     for endpoint in tempWordlist:
-        url = f"{baseUrl}/{endpoint}"
+        url = f"{baseUrl.rstrip('/')}/{endpoint.lstrip('/')}"
         check_status(url, wordlist)
     check_wordlist(baseUrl, wordlist)
+
 
 def check_wordlist(baseUrl, wordlist):
     if not os.path.exists(wordlist):
@@ -62,33 +64,48 @@ def check_wordlist(baseUrl, wordlist):
             for line in f:
                 endpoint = line.strip()
                 if endpoint and not endpoint.startswith('#'):
-                    endpoints.append(endpoint)
+                    endpoints.append(endpoint.lstrip('/'))
     except Exception as e:
         print(f" [!] Failed to read wordlist! {e}")
-    urls = [f"{baseUrl}/{endpoint}" for endpoint in endpoints]
+    
+    clean_base = baseUrl if baseUrl.endswith('/') else baseUrl + '/'
+    urls = [f"{clean_base}{endpoint}" for endpoint in endpoints]
+    
     with ThreadPoolExecutor(max_workers=thread_count) as executor:
         executor.map(lambda url: check_status(url, wordlist), urls)
 def check_status(url, wordlist):
+
+    parsed = urlparse(url)
+    clean_path = parsed.path.replace('//', '/')
+    url = urlunparse((parsed.scheme, parsed.netloc, clean_path, parsed.params, parsed.query, parsed.fragment))
+
     try:
-        response = requests.get(f"{url}")
+        headers = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0"}
+        response = requests.get(url, headers=headers, timeout=5, allow_redirects=False, verify=False) 
         if response.status_code == 200:
             with terminal_lock:
                 print(f"\n [+] Url found: {url}")
             with prompt_lock:
                 ask_subscan(url, wordlist)
-        elif response.status_code == 403: 
+        if response.status_code in [301, 302, 307, 308]:
+            print(
+            f"[>] Redirect ({response.status_code}) "
+            f"{url} -> {response.headers.get('Location')}"
+            )
+        elif response.status_code in [401, 403]: 
             with terminal_lock:
-                print(f"\n [-] Url found but not permitted (403 ERR): {url}")
+                print(f"\n [-] Url found but restricted ({response.status_code}): {url}")
             with prompt_lock:
                 ask_subscan(url, wordlist)
-        elif response.status_code == 401: 
-            with terminal_lock:
-                print(f"\n [-] Url found but not permitted (401 ERR): {url}")
-            with prompt_lock:
-                ask_subscan(url, wordlist)
-    except requests.exceptions.RequestException:
-            pass
-
+    except requests.exceptions.Timeout:
+        with terminal_lock:
+            print(f" [!] Timeout connecting to: {url}")
+    except requests.exceptions.ConnectionError:
+        with terminal_lock:
+            print(f" [!] Connection Error: Unable to reach {url}.")
+    except requests.exceptions.RequestException as e:
+        with terminal_lock:
+            print(f" [!] Request error on {url}: {e}")
 def ask_subscan(url, wordlist, timeout=5):
     sys.stdout.write("\r\033[K") 
     sys.stdout.write(f"    '-> Subscan {url}? (y/n) [Auto-skip in {timeout}s]: ")
@@ -116,7 +133,8 @@ def ask_subscan(url, wordlist, timeout=5):
     else:
         sys.stdout.write("\r\033[K    [-] Timeout: Skipped prompt for " + url + "\n")
         sys.stdout.flush()
-        ask_probe(url)
+
+    ask_probe(url)
 
 def ask_probe(url, timeout=5):
     sys.stdout.write("\r\033[K") 
