@@ -14,7 +14,8 @@ A powerful directory brute-force tool designed for API reconnaissance and penetr
   `--' `--'`--'      `--'             `-----' `--'        `--'      
 ```
 <img width="1920" height="1047" alt="screenie" src="https://github.com/user-attachments/assets/3ecfba10-8dae-4174-b3db-3d8be198eedd" alt="Debugging on HTB machine WingData" />
-<img width="1920" height="1080" alt="Screenshot_2026-05-19_13-36-40" src="https://github.com/user-attachments/assets/2df7c4f0-13aa-46f7-a1e8-420af5efc6fd" alt="Debugging on HTB machine WingData" />
+<img width="1920" height="1047" alt="work" src="https://github.com/user-attachments/assets/fc370c85-34a5-4df6-a681-78e649be133a" alt="Debugging on HTB machine WingData" />
+
 
 ## Features
 
