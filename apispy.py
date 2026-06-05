@@ -5,7 +5,8 @@ import subprocess
 import select
 import threading
 from urllib.parse import urlparse, urlunparse
-
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from concurrent.futures import ThreadPoolExecutor
 print(r"""
 =====================================================================
