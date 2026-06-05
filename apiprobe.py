@@ -24,7 +24,7 @@ print(" =====================================================")
 
 for method in methods:
     try:
-        response = requests.request(method, url, timeout=4, allow_redirects=False)
+        response = requests.request(method, url, timeout=4, allow_redirects=False, verify=False)
         
         if response.status_code == 200:
             status_text = f"\033[92m200 OK\033[0m"
