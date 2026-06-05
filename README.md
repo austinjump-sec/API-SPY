@@ -2,17 +2,6 @@
 
 A powerful directory brute-force tool designed for API reconnaissance and penetration testing. Automatically discovers hidden API endpoints, performs recursive subscanning, and probes HTTP methods for deeper API enumeration.
 
-```
-   ('-.      _ (`-.                    .-')     _ (`-.              
-  ( OO ).-. ( (OO  )                  ( OO ).  ( (OO  )             
-  / . --. /_.`     \ ,-.-')          (_)---\_)_.`     \  ,--.   ,--.
-  | \-.  \(__...--'' |  |OO)   .-')  /    _ |(__...--''   \  `.'  / 
-.-'-'  |  ||  /  | | |  |  \ _(  OO) \  :` `. |  /  | | .-')     /  
- \| |_.'  ||  |_.' | |  |(_/(,------. '..`''.)|  |_.' |(OO  \   /   
-  |  .-.  ||  .___.',|  |_.' '------'.-._)   \|  .___.' |   /  /\_  
-  |  | |  ||  |      (_|  |            \       /|  |      `-./  /.__) 
-  `--' `--'`--'      `--'             `-----' `--'        `--'      
-```
 <img width="1920" height="1047" alt="screenie" src="https://github.com/user-attachments/assets/3ecfba10-8dae-4174-b3db-3d8be198eedd" alt="Debugging on HTB machine WingData" />
 <img width="1920" height="1047" alt="work" src="https://github.com/user-attachments/assets/fc370c85-34a5-4df6-a681-78e649be133a" alt="Debugging on HTB machine WingData" />
 
