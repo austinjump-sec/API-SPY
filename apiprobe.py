@@ -2,6 +2,8 @@ import sys
 import requests
 
 print(r"""
+=====================================================================================
+=====================================================================================
    ('-.      _ (`-.                    _ (`-.  _  .-')              .-. .-')    ('-.   
   ( OO ).-. ( (OO  )                  ( (OO  )( \( -O )             \  ( OO ) _(  OO)  
   / . --. /_.`     \ ,-.-')          _.`     \ ,------.  .-'),-----. ;-----.\(,------. 
@@ -11,6 +13,8 @@ print(r"""
   |  .-.  ||  .___.',|  |_.' '------'|  .___.' |  .  '.'  \ |  | |  || |  \  ||  .--'  
   |  | |  ||  |    (_|  |            |  |      |  |\  \    `'  '-'  '| '--'  /|  `---. 
   `--' `--'`--'      `--'            `--'      `--' '--'     `-----' `------' `------' 
+=====================================================================================
+=====================================================================================
 """)
 if len(sys.argv) < 2:
     print(" [!] Error: No URL provided.")
@@ -24,7 +28,9 @@ print(" =====================================================")
 
 for method in methods:
     try:
-        response = requests.request(method, url, timeout=4, allow_redirects=False, verify=False)
+        response = requests.get(url, headers=headers, timeout=5, allow_redirects=False)
+    except requests.exceptions.SSLError:
+        response = requests.get(url, headers=headers, timeout=5, allow_redirects=False, verify=False)
         
         if response.status_code == 200:
             status_text = f"\033[92m200 OK\033[0m"
