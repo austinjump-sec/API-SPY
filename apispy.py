@@ -24,21 +24,24 @@ print(r"""
 =====================================================================
 """);
 if len(sys.argv) < 3:
-    print(" [!] Usage: python3 script.py <baseUrl> <wordlist> [-t<thread-count> --split (to open subprocess in same terminal when subscanning/probing)] ")
-    print("Brackets are optional flags, not syntax")
+    print(" [!] Usage: python3 script.py <baseUrl> <wordlist> [flags] ")
+    print("Flags: --debug: Gives error messages that are hidden by default to keep prompting and scanning output from interrupting eachother.")
+    print("--t<1-150>: Specifies thread count.")
+    print("--split: Opens subscans in a multiplex terminal (tmux) split-pane.")
     sys.exit(1)
 
 baseUrl = sys.argv[1]
 wordlist = sys.argv[2]
 flag = sys.argv[3] if len(sys.argv) > 3 else ""
 flag1 = sys.argv[4] if len(sys.argv) > 4 else ""
+flag2 = sys.argv[5] if len(sys.argv) > 5 else ""
 arguments = sys.argv[3:]
-thread_flag = next((arg for arg in arguments if arg.startswith("-t")), "")
+thread_flag = next((arg for arg in arguments if arg.startswith("--t")), "")
 terminal_lock = threading.Lock()
 prompt_lock = threading.Lock()
 if thread_flag:
     try:
-        thread_count = int(thread_flag[2:])
+        thread_count = int(thread_flag[3:])
         if thread_count > 150:
             thread_count = 1
     except ValueError:
@@ -85,28 +88,26 @@ def check_status(url, wordlist):
         response = requests.get(url, headers=headers, timeout=5, allow_redirects=False)
     except requests.exceptions.SSLError:
         response = requests.get(url, headers=headers, timeout=5, allow_redirects=False, verify=False)
-        if response.status_code == 200:
-            with terminal_lock:
-                print(f"\n [+] Url found: {url}")
-            with prompt_lock:
-                ask_subscan(url, wordlist)
-        if response.status_code in [301, 302, 307, 308]:
-            with terminal_lock:
-                print(
-            f"[>] Redirect ({response.status_code}) "
-            f"{url} -> {response.headers.get('Location')}"
-            )
-        elif response.status_code in [401, 403]: 
-            with terminal_lock:
-                print(f"\n [-] Url found but restricted ({response.status_code}): {url}")
-            with prompt_lock:
-                ask_subscan(url, wordlist)
-    except requests.exceptions.Timeout:
-        pass
-    except requests.exceptions.ConnectionError:
-        pass
     except requests.exceptions.RequestException as e:
-        pass
+        if "--debug" in arguments:
+            print(f" [!] Connection error: {e}")
+        return
+    if response.status_code == 200:
+        with terminal_lock:
+            print(f"\n [+] Url found: {url}")
+        with prompt_lock:
+            ask_subscan(url, wordlist)
+    if response.status_code in [301, 302, 307, 308]:
+        with terminal_lock:
+            print(
+        f"[>] Redirect ({response.status_code}) "
+        f"{url} -> {response.headers.get('Location')}"
+        )
+    elif response.status_code in [401, 403]: 
+        with terminal_lock:
+            print(f"\n [-] Url found but restricted ({response.status_code}): {url}")
+        with prompt_lock:
+            ask_subscan(url, wordlist)
 
 def ask_subscan(url, wordlist, timeout=5):
     sys.stdout.write("\r\033[K") 
@@ -117,21 +118,18 @@ def ask_subscan(url, wordlist, timeout=5):
         choice = sys.stdin.readline().strip().lower()
         if choice in ['y', 'yes']:
             print(" [-] Beginning Subscan, please ensure script is named apispy.py")
-            subScanCmd = f"python3 apispy.py {url} {wordlist}"
+            subScanCmd = f"python3 apispy.py {url} {wordlist} {flag} {flag2} {flag3}".strip()
             
-            if flag == "--split" or flag1 == "--split":
+            if "--split" in arguments:
                 subScanCmd = f"python3 apispy.py {url} {wordlist} --split"
                 try:
                     subprocess.Popen(["tmux", "split-window", "-h", subScanCmd])
-                    ask_probe(url)
                 except Exception as e:
                     subScanCmd = f"python3 apispy.py {url} {wordlist}"
                     print(f"\n [!] An error occurred, opening new terminal despite flag: {e}")
                     os.system(f"gnome-terminal -- bash -c '{subScanCmd}; exec bash'")
-                    ask_probe(url)
             else:
                 os.system(f"gnome-terminal -- bash -c '{subScanCmd}; exec bash'")
-                ask_probe(url)
     else:
         sys.stdout.write("\r\033[K    [-] Timeout: Skipped prompt for " + url + "\n")
         sys.stdout.flush()
@@ -151,7 +149,7 @@ def ask_probe(url, timeout=5):
             probeCmd = f"python3 apiprobe.py {url}"
             
 
-            if flag == "--split" or flag1 == "--split" or "--split" in arguments:
+            if "--split" in arguments:
                 try:
                     subprocess.Popen(["tmux", "split-window", "-h", probeCmd])
                 except Exception as e:
