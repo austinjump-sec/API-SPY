@@ -128,6 +128,9 @@ After subscanning, you're prompted:
 ### API-SPY Main Script
 ```
 [+] Url found: http://api.example.com/v1            ← 200 OK (accessible)
+    '-> Subscan http://api.example.com/v1? (y/n) [Auto-skip in 5s]: n
+[-] Timeout: Skipped prompt for http://api.example.com/v1?
+    '-> Probe methods on http://api.example.com/v1? (y/n) [Auto-skip in 5s]: 
 [-] Url found but not permitted (403 ERR): ...      ← Forbidden but exists
 [-] Url found but not permitted (401 ERR): ...      ← Requires authentication
 ```
