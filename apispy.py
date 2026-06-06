@@ -4,6 +4,7 @@ import os
 import subprocess
 import select
 import threading
+import re
 from urllib.parse import urlparse, urlunparse
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -26,6 +27,7 @@ print(r"""
 if len(sys.argv) < 3:
     print(" [!] Usage: python3 script.py <baseUrl> <wordlist> [flags] ")
     print("Flags: --debug: Gives error messages that are hidden by default to keep prompting and scanning output from interrupting eachother.")
+    print("--js: Attempts to scrape .js files to find common /api/ endpoints.")
     print("--loud: Gives response of every directory and highlighting any results not 404.")
     print("--t<1-150>: Specifies thread count. Note: I added a pretty high thread count, if subscanning and probing are important please use a low thread count.")
     print("--split: Opens subscans in a multiplex terminal (tmux) split-pane.")
@@ -37,13 +39,14 @@ flag = sys.argv[3] if len(sys.argv) > 3 else ""
 flag1 = sys.argv[4] if len(sys.argv) > 4 else ""
 flag2 = sys.argv[5] if len(sys.argv) > 5 else ""
 flag3 = sys.argv[6] if len(sys.argv) > 6 else ""
+flag4 = sys.argv[7] if len(sys.argv) > 7 else ""
 arguments = sys.argv[3:]
 thread_flag = next((arg for arg in arguments if arg.startswith("--t")), "")
 terminal_lock = threading.Lock()
 prompt_lock = threading.Lock()
 if thread_flag:
     try:
-        thread_count = int(thread_flag[3:])
+        thread_count = int(thread_flag.replace("--t", ""))
         if thread_count > 150:
             thread_count = 1
     except ValueError:
@@ -57,9 +60,34 @@ def check_common_apis(baseUrl, wordlist):
     for endpoint in tempWordlist:
         url = f"{baseUrl.rstrip('/')}/{endpoint.lstrip('/')}"
         check_status(url, wordlist)
+    if "--js" in arguments:
+        print(" [+] Scraping JavaScript for hidden API endpoints'")
+        discover_javascript(baseUrl, wordlist)
     check_wordlist(baseUrl, wordlist)
-
-
+def discover_javascript(baseUrl, wordlist):
+    common_js_paths = [
+        "main.js", "app.js", "index.js", "bundle.js",
+        "static/js/main.js", "static/js/bundle.js", "static/js/app.js",
+        "js/main.js", "js/app.js", "js/index.js",
+        "dist/main.js", "dist/app.js", "build/main.js", "assets/index.js"
+    ]
+    clean_base = baseUrl if baseUrl.endswith('/') else baseUrl + '/'
+    js_urls = [f"{clean_base}{path}" for path in common_js_paths]
+    discovered_endpoints = set()
+    with ThreadPoolExecutor(max_workers=thread_count) as executor:
+        results = executor.map(scrape_js, js_urls)
+        for found_paths in results:
+            if found_paths:
+                discovered_endpoints.update(found_paths)
+        if discovered_endpoints:
+            print(f" [!] Discovered {len(discovered_endpoints)} distinct paths in JavaScript files!")
+            for route in discovered_endpoints:
+                print(f"\033[31m {route} | Found in .js file \033[0m")
+                if route.startswith(("http://", "https://")):
+                    full_url = route
+                else:
+                    full_url = f"{baseUrl.rstrip('/')}/{route.lstrip('/')}"
+                check_status(full_url, wordlist)
 def check_wordlist(baseUrl, wordlist):
     if not os.path.exists(wordlist):
         print(f" [!] ERR: Wordlist not found at {wordlist}")
@@ -118,7 +146,32 @@ def check_status(url, wordlist):
             if response.status_code == 404:
                 print(f"{url} attempted. HTTP Code: {response.status_code}")
             else:
-                print(f"\033[31m {url} attemped. HTTP Code: {response.status_code} \033[0m")
+                print(f"\033[31m {url} attempted. HTTP Code: {response.status_code} \033[0m")
+
+def scrape_js(url):
+    headers = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0"}
+    try:
+        response = requests.get(url, headers=headers, timeout=5, verify=False, allow_redirects=False)
+        
+        if response.status_code == 200 and url.endswith('.js'):
+           print(f" [>] JavaScript file found: {url}")
+           endpoint_regex = [
+            r'["\'](/api/[v\w/\-]+)["\']',
+            r'["\'](/graphql)["\']',
+            r'["\'](/rest/[v\w/\-]+)["\']',
+            r'(https?://[^"\']+/api/[v\w/\-]+)'
+        ]
+           found_endpoints = []
+           for pattern in endpoint_regex:
+               matches = re.findall(pattern, response.text)
+               for match in matches:
+                   match_clean = match.strip("/")
+                   found_endpoints.append(match_clean)
+           return found_endpoints
+    except Exception as e:
+        print(f" [!] Error downloading .js file {url}: {e}")
+        return []
+    return []
 def ask_subscan(url, wordlist, timeout=5):
     sys.stdout.write("\r\033[K") 
     sys.stdout.write(f"    '-> Subscan {url}? (y/n) [Auto-skip in {timeout}s]: ")
@@ -128,7 +181,7 @@ def ask_subscan(url, wordlist, timeout=5):
         choice = sys.stdin.readline().strip().lower()
         if choice in ['y', 'yes']:
             print(" [-] Beginning Subscan, please ensure script is named apispy.py")
-            subScanCmd = f"python3 apispy.py {url} {wordlist} {flag} {flag1} {flag2} {flag3}".strip()
+            subScanCmd = f"python3 apispy.py {url} {wordlist} {flag} {flag1} {flag2} {flag3} {flag4}".strip()
             
             if "--split" in arguments:
                 try:
